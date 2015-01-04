@@ -51,3 +51,46 @@ mantaLogDirectory    = /mantauser/stor/logs/
 mantaRetryAttempts   = 3
 mantaDurabilityLevel = 3
 ```
+
+Here's what a sample roll-over configuration may look like:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} ${HOSTNAME} [%thread] %-5level [%X{tracker}] %logger - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="RolloverFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder>
+            <charset>utf-8</charset>
+            <pattern>%msg%n</pattern>
+        </encoder>
+        <append>true</append>
+        <file>logs/rollover.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.MantaTimeBasedRollingPolicy">
+            <!-- Manta Rollover variables -->
+            <mantaRetryAttempts>3</mantaRetryAttempts>
+            <mantaDurabilityLevel>3</mantaDurabilityLevel>
+            <!-- Assume that the other variables came in via system properies -->
+
+            <fileNamePattern>logs/archive/rollover-%d{yyyy-MM-dd}-%i.log.gz</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy
+                    class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>1GB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
+    </appender>
+
+    <logger name="rollover.test" level="trace" additivity="false">
+        <appender-ref ref="RolloverFile" />
+    </logger>
+
+    <root level="debug">
+        <appender-ref ref="Console" />
+    </root>
+</configuration>
+```
