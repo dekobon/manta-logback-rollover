@@ -3,6 +3,8 @@ package com.github.dekobon;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
 import com.joyent.manta.exception.MantaClientException;
+import com.joyent.manta.exception.MantaClientHttpResponseException;
+import com.joyent.manta.exception.MantaObjectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -142,6 +144,13 @@ public class PutLogOnManata implements Callable<MantaObject> {
 
         logger.info("Rolling log archive over to {}",
                 mantaFilename);
+
+        try {
+            createDirectories(client);
+        } catch (Exception e) {
+            logger.error("foo", e);
+        }
+
         client.put(mantaObject);
 
         if (mantaRolloverListener != null) {
@@ -149,6 +158,29 @@ public class PutLogOnManata implements Callable<MantaObject> {
         }
 
         return mantaObject;
+    }
+
+    protected void createDirectories(MantaClient client) throws IOException,
+            MantaClientException, MantaObjectException {
+        String[] directories = mantaLogDirectory.split("/");
+        StringBuilder appendedDir = new StringBuilder();
+
+        for (String d : directories) {
+            if (d.isEmpty()) continue;
+
+            appendedDir.append("/").append(d);
+
+            try {
+                client.listObjects(appendedDir.toString());
+            } catch (MantaClientHttpResponseException e) {
+                if (e.getStatusCode() == 404) {
+                    logger.info("Creating directory on Manta: {}", appendedDir);
+                    client.putDirectory(appendedDir.toString(), null);
+                } else {
+                    throw e;
+                }
+            }
+        }
     }
 
     /**
