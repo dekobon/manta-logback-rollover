@@ -102,11 +102,16 @@ public class PutLogOnManata implements Callable<MantaObject> {
         String envVarValue = System.getenv(envVar);
         if (isNotBlank(envVarValue)) return envVarValue;
 
+        String msg = String.format(
+                "Environment variable %s or system property %s not specified - %s",
+                envVar, systemProperty, errorMessage
+        );
+
         if (logger.isDebugEnabled()) {
-            logger.debug(errorMessage);
+            logger.debug(msg);
         }
 
-        throw new IllegalArgumentException(errorMessage);
+        throw new IllegalArgumentException(msg);
     }
 
     @Override
