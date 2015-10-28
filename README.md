@@ -5,17 +5,6 @@ This is a implementation of a [Logback](http://logback.qos.ch/) RollingPolicy
 that copies logs triggered for archival to the open-source
 [Manta storage system](https://apidocs.joyent.com/manta/).
 
-Dependencies
-------------
-
-There are only two dependencies: [logback](http://logback.qos.ch/) and
-[java-manta](https://github.com/joyent/java-manta). Right now this project
-is dependent on [my java-manta fork](https://github.com/dekobon/java-manta).
-I hope to get my changes in the fork back ported into main code base. Until
-then, you will need to build the Java Manta from my fork and use it to build
-this project. You can find the forked jar
-[here](https://github.com/dekobon/java-manta/releases/tag/1.5.2-dekobon-fork).
-
 Configuration
 -------------
 
