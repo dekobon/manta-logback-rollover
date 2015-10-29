@@ -8,6 +8,35 @@
     <artifactId>manta-logback-rollover</artifactId>
     <version>1.0.2</version>
 
+    <name>manta-logback-rollover</name>
+    <url>https://github.com/dekobon/manta-logback-rollover</url>
+    <licenses>
+        <license>
+            <name>The MIT License (MIT)</name>
+            <url>http://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+            <comments>Copyright (c) 2013 Elijah Zupancic</comments>
+        </license>
+    </licenses>
+    <description>Rolls over logback logs to the Manta storage engine.</description>
+
+    <developers>
+        <developer>
+            <email>elijah@zupancic.name</email>
+            <name>Elijah Zupancic</name>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/dekobon/manta-logback-rollover.git</connection>
+        <developerConnection>scm:git:git://github.com/dekobon/manta-logback-rollover.git</developerConnection>
+        <url>git@github.com:dekobon/manta-logback-rollover.git</url>
+    </scm>
+    <issueManagement>
+        <system>github.com</system>
+        <url>https://github.com/dekobon/manta-logback-rollover/issues</url>
+    </issueManagement>
+
     <distributionManagement>
         <snapshotRepository>
             <id>ossrh</id>
