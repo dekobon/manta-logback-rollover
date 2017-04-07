@@ -1,10 +1,21 @@
 package ch.qos.logback.core.rolling;
 
 import ch.qos.logback.core.CoreConstants;
-import com.github.dekobon.PutLogOnManata;
+import ch.qos.logback.core.rolling.helper.ArchiveRemover;
+import com.github.dekobon.PutLogOnManta;
 import com.joyent.manta.client.MantaObject;
+import com.joyent.manta.config.ChainedConfigContext;
+import com.joyent.manta.config.ConfigContext;
+import com.joyent.manta.config.DefaultsConfigContext;
+import com.joyent.manta.config.StandardConfigContext;
+import com.joyent.manta.config.SystemSettingsConfigContext;
 
-import java.util.concurrent.*;
+import java.lang.reflect.Field;
+import java.util.Date;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -30,8 +41,28 @@ public class MantaTimeBasedRollingPolicy extends TimeBasedRollingPolicy {
         super();
     }
 
+    private ArchiveRemover getArchiveRemover() {
+        try {
+            Field field = TimeBasedRollingPolicy.class.getField("archiveRemover");
+            return (ArchiveRemover)field.get(this);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Unable to access private field");
+        }
+    }
+
+    private void setArchiveRemover(final ArchiveRemover archiveRemover) {
+        try {
+            Field field = TimeBasedRollingPolicy.class.getField("archiveRemover");
+            field.set(this, archiveRemover);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Unable to access private field");
+        }
+    }
+
     @Override
     public void rollover() throws RolloverFailure {
+        final ArchiveRemover archiveRemover = getArchiveRemover();
+        setArchiveRemover(null);
         super.rollover();
 
         final String filename = archivedFilename();
@@ -40,13 +71,13 @@ public class MantaTimeBasedRollingPolicy extends TimeBasedRollingPolicy {
             case NONE:
                 copyToManta(filename);
             default:
-                if (future == null) return;
+                if (super.compressionFuture == null) return;
 
-                while (!future.isDone()) {
-                    if (future.isCancelled()) return;
+                while (!super.compressionFuture.isDone()) {
+                    if (super.compressionFuture.isCancelled()) return;
 
                     try {
-                        future.get(CoreConstants.SECONDS_TO_WAIT_FOR_COMPRESSION_JOBS, TimeUnit.SECONDS);
+                        super.compressionFuture.get(CoreConstants.SECONDS_TO_WAIT_FOR_COMPRESSION_JOBS, TimeUnit.SECONDS);
                     } catch (TimeoutException e) {
                         addError("Timeout while waiting for compression job to finish", e);
                     } catch (Exception e) {
@@ -55,6 +86,13 @@ public class MantaTimeBasedRollingPolicy extends TimeBasedRollingPolicy {
                 }
 
                 copyToManta(filename);
+        }
+
+        setArchiveRemover(archiveRemover);
+
+        if (archiveRemover != null) {
+            Date now = new Date(timeBasedFileNamingAndTriggeringPolicy.getCurrentTime());
+            super.cleanUpFuture = archiveRemover.cleanAsynchronously(now);
         }
     }
 
@@ -77,20 +115,28 @@ public class MantaTimeBasedRollingPolicy extends TimeBasedRollingPolicy {
     }
 
     private void copyToManta(String filename) throws RolloverFailure {
-        Callable<MantaObject> copy = new PutLogOnManata(
-                mantaUrl,
-                mantaUser,
-                mantaKeyPath,
-                mantaKeyFingerprint,
+        ConfigContext defaults = new DefaultsConfigContext();
+        ConfigContext system = new SystemSettingsConfigContext();
+        ConfigContext user = new StandardConfigContext()
+                .setMantaURL(mantaUrl)
+                .setMantaUser(mantaUser)
+                .setMantaKeyPath(mantaKeyPath)
+                .setMantaKeyId(mantaKeyFingerprint);
+
+        ConfigContext chained = new ChainedConfigContext(defaults,
+                system, user);
+
+        Callable<MantaObject> copy = new PutLogOnManta(
+                chained,
                 mantaLogDirectory,
-                mantaRetryAttempts,
                 mantaDurabilityLevel,
                 filename);
 
-        ExecutorService executor = Executors.newScheduledThreadPool(1,
-                threadFactory);
-        super.future = executor.submit(copy);
-        executor.shutdown();
+        try {
+            copy.call();
+        } catch (Exception e) {
+            throw new RolloverFailure("Unable to rollover to Manta", e);
+        }
     }
 
     class MantaRolloverThreadFactory implements ThreadFactory {
